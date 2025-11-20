@@ -1,0 +1,26 @@
+{{- if and .Values.global.openshift.enabled .Values.global.openshift.route.enabled }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "ctfd.fullname" . }}
+  labels:
+    {{- include "ctfd.labels" . | nindent 4 }}
+spec:
+  {{- if .Values.global.openshift.route.host }}
+  host: {{ .Values.global.openshift.route.host }}
+  {{- end }}
+  to:
+    kind: Service
+    name: {{ include "ctfd.fullname" . }}
+    weight: 100
+  port:
+    targetPort: http
+  {{- if .Values.global.openshift.route.tls.enabled }}
+  tls:
+    termination: {{ .Values.global.openshift.route.tls.termination }}
+    {{- if .Values.global.openshift.route.tls.insecureEdgeTerminationPolicy }}
+    insecureEdgeTerminationPolicy: {{ .Values.global.openshift.route.tls.insecureEdgeTerminationPolicy }}
+    {{- end }}
+  {{- end }}
+  wildcardPolicy: None
+{{- end }}

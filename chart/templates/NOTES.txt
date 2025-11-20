@@ -1,0 +1,68 @@
+CTFd has been deployed successfully!
+
+1. Get the application URL by running:
+{{- if and .Values.global.openshift.enabled .Values.global.openshift.route.enabled }}
+
+  export ROUTE_HOST=$(oc get route {{ include "ctfd.fullname" . }} -o jsonpath='{.spec.host}')
+  echo "CTFd URL: https://$ROUTE_HOST"
+
+{{- else if .Values.nginx.enabled }}
+
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "ctfd.nginx.fullname" . }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  echo "CTFd URL: http://$SERVICE_IP"
+
+{{- else }}
+
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "ctfd.fullname" . }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  echo "CTFd URL: http://$SERVICE_IP:{{ .Values.ctfd.service.port }}"
+
+  Or use port-forward:
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "ctfd.fullname" . }} 8000:{{ .Values.ctfd.service.port }}
+  echo "CTFd URL: http://localhost:8000"
+
+{{- end }}
+
+2. Access your CTFd instance and complete the setup wizard.
+
+3. Database Details:
+{{- if .Values.mariadb.enabled }}
+   - Host: {{ include "ctfd.mariadb.fullname" . }}
+   - Port: {{ .Values.mariadb.service.port }}
+   - Database: {{ .Values.mariadb.auth.database }}
+   - Username: {{ .Values.mariadb.auth.username }}
+   - Connection is automatically configured via DATABASE_URL environment variable
+{{- else }}
+   - External database configured via DATABASE_URL
+{{- end }}
+
+4. Redis Cache:
+{{- if .Values.redis.enabled }}
+   - Host: {{ include "ctfd.redis.fullname" . }}
+   - Port: {{ .Values.redis.service.port }}
+   - Connection is automatically configured via REDIS_URL environment variable
+{{- else }}
+   - External Redis configured via REDIS_URL
+{{- end }}
+
+5. Storage:
+{{- if .Values.ctfd.persistence.uploads.enabled }}
+   - Uploads are persisted to: {{ include "ctfd.fullname" . }}-uploads PVC
+{{- end }}
+{{- if .Values.ctfd.persistence.logs.enabled }}
+   - Logs are persisted to: {{ include "ctfd.fullname" . }}-logs PVC
+{{- end }}
+
+6. Security Notes:
+   - Default credentials should be changed immediately after first login
+   - SECRET_KEY is {{ if .Values.ctfd.env.secretKey }}set via values{{ else }}auto-generated{{ end }}
+{{- if .Values.mariadb.enabled }}
+   - Database passwords are stored in secret: {{ include "ctfd.fullname" . }}
+{{- end }}
+
+For more information about CTFd, visit:
+- Documentation: https://docs.ctfd.io/
+- GitHub: https://github.com/CTFd/CTFd
+- Community: https://community.majorleaguecyber.org/
+
+To view the status of your deployment:
+  kubectl get all -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
