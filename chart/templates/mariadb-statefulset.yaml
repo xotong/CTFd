@@ -1,0 +1,105 @@
+{{- if .Values.mariadb.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "ctfd.mariadb.fullname" . }}
+  labels:
+    {{- include "ctfd.mariadb.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "ctfd.mariadb.fullname" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ctfd.mariadb.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ctfd.mariadb.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.mariadb.primary.podSecurityContext | nindent 8 }}
+      containers:
+        - name: mariadb
+          securityContext:
+            {{- toYaml .Values.mariadb.primary.containerSecurityContext | nindent 12 }}
+          image: "{{ .Values.mariadb.image.repository }}:{{ .Values.mariadb.image.tag }}"
+          imagePullPolicy: {{ .Values.mariadb.image.pullPolicy }}
+          args:
+            {{- toYaml .Values.mariadb.args | nindent 12 }}
+          ports:
+            - name: mysql
+              containerPort: 3306
+              protocol: TCP
+          env:
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ctfd.fullname" . }}
+                  key: mariadb-root-password
+            - name: MARIADB_DATABASE
+              value: {{ .Values.mariadb.auth.database | quote }}
+            - name: MARIADB_USER
+              value: {{ .Values.mariadb.auth.username | quote }}
+            - name: MARIADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ctfd.fullname" . }}
+                  key: mariadb-password
+            {{- range .Values.mariadb.extraEnvVars }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          livenessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -ec
+                - |
+                  password_aux="${MARIADB_ROOT_PASSWORD:-}"
+                  mysqladmin status -uroot -p"${password_aux}"
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -ec
+                - |
+                  password_aux="${MARIADB_ROOT_PASSWORD:-}"
+                  mysqladmin status -uroot -p"${password_aux}"
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.mariadb.primary.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+  {{- if .Values.mariadb.primary.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "ctfd.mariadb.labels" . | nindent 10 }}
+      spec:
+        accessModes:
+          - {{ .Values.mariadb.primary.persistence.accessMode | quote }}
+        resources:
+          requests:
+            storage: {{ .Values.mariadb.primary.persistence.size | quote }}
+        {{- if .Values.mariadb.primary.persistence.storageClass }}
+        {{- if (eq "-" .Values.mariadb.primary.persistence.storageClass) }}
+        storageClassName: ""
+        {{- else }}
+        storageClassName: {{ .Values.mariadb.primary.persistence.storageClass | quote }}
+        {{- end }}
+        {{- end }}
+  {{- else }}
+      volumes:
+        - name: data
+          emptyDir: {}
+  {{- end }}
+{{- end }}

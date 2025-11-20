@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ctfd.fullname" . }}
+  labels:
+    {{- include "ctfd.labels" . | nindent 4 }}
+data:
+  WORKERS: {{ .Values.ctfd.env.workers | quote }}
+  WORKER_CLASS: {{ .Values.ctfd.env.workerClass | quote }}
+  ACCESS_LOG: {{ .Values.ctfd.env.accessLog | quote }}
+  ERROR_LOG: {{ .Values.ctfd.env.errorLog | quote }}
+  UPLOAD_FOLDER: {{ .Values.ctfd.env.uploadFolder | quote }}
+  LOG_FOLDER: {{ .Values.ctfd.env.logFolder | quote }}
+  REVERSE_PROXY: {{ .Values.ctfd.env.reverseProxy | quote }}
+  SKIP_DB_PING: {{ .Values.ctfd.env.skipDbPing | quote }}

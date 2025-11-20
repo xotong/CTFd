@@ -1,0 +1,222 @@
+# OpenShift Developer Sandbox Configuration
+# This configuration is optimized for the free OpenShift Developer Sandbox
+# which has specific restrictions and resource limitations.
+#
+# Restrictions handled:
+# - No namespace creation (use your provisioned namespace)
+# - No custom ServiceAccount (uses default)
+# - No route host specification (auto-assigned)
+# - Limited resources (fits within free tier quotas)
+# - No custom storage classes (uses default)
+
+global:
+  openshift:
+    enabled: true
+    route:
+      enabled: true
+      host: ""  # Leave empty - Developer Sandbox auto-assigns routes
+      tls:
+        enabled: true
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect
+
+ctfd:
+  replicaCount: 1  # Single replica to conserve resources
+  
+  image:
+    repository: ctfd/ctfd
+    pullPolicy: IfNotPresent
+    # tag: ""  # Uses chart appVersion
+  
+  env:
+    workers: 1  # Single worker to reduce memory usage
+    workerClass: "gevent"
+    secretKey: ""  # Auto-generated
+    reverseProxy: "true"
+    accessLog: "-"
+    errorLog: "-"
+  
+  service:
+    type: ClusterIP
+    port: 8000
+  
+  # Reduced resources to fit Developer Sandbox quotas
+  # Developer Sandbox typically provides: 7 cores, 15Gi RAM total
+  resources:
+    limits:
+      cpu: 500m
+      memory: 768Mi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+  
+  # Standard health probes
+  livenessProbe:
+    httpGet:
+      path: /healthcheck
+      port: 8000
+    initialDelaySeconds: 45
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  
+  readinessProbe:
+    httpGet:
+      path: /healthcheck
+      port: 8000
+    initialDelaySeconds: 30
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+  
+  # Security context compatible with restricted SCC
+  podSecurityContext:
+    runAsNonRoot: true
+  
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+  
+  # Persistence with reduced storage for free tier
+  persistence:
+    uploads:
+      enabled: true
+      storageClass: ""  # Uses default - Developer Sandbox provides dynamic provisioning
+      accessMode: ReadWriteOnce
+      size: 2Gi  # Reduced from 5Gi to fit quotas
+    
+    logs:
+      enabled: true
+      storageClass: ""
+      accessMode: ReadWriteOnce
+      size: 500Mi  # Reduced from 1Gi
+
+  # No custom node selectors, tolerations, or affinity
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  
+  podAnnotations: {}
+  podLabels: {}
+
+# MariaDB with reduced resources
+mariadb:
+  enabled: true
+  
+  image:
+    repository: mariadb
+    tag: "10.11"
+    pullPolicy: IfNotPresent
+  
+  auth:
+    rootPassword: "ctfd"  # Change this in production
+    database: "ctfd"
+    username: "ctfd"
+    password: "ctfd"  # Change this in production
+  
+  primary:
+    persistence:
+      enabled: true
+      storageClass: ""  # Uses default
+      accessMode: ReadWriteOnce
+      size: 2Gi  # Reduced from 5Gi
+    
+    # Reduced resources for free tier
+    resources:
+      limits:
+        cpu: 300m
+        memory: 512Mi
+      requests:
+        cpu: 150m
+        memory: 256Mi
+    
+    podSecurityContext:
+      runAsNonRoot: true
+    
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+  
+  service:
+    type: ClusterIP
+    port: 3306
+  
+  extraEnvVars:
+    - name: MARIADB_AUTO_UPGRADE
+      value: "1"
+  
+  # MariaDB configuration matching docker-compose.yml
+  args:
+    - "--character-set-server=utf8mb4"
+    - "--collation-server=utf8mb4_unicode_ci"
+    - "--wait_timeout=28800"
+    - "--log-warnings=0"
+
+# Redis with reduced resources
+redis:
+  enabled: true
+  
+  image:
+    repository: redis
+    tag: "4"
+    pullPolicy: IfNotPresent
+  
+  architecture: standalone
+  
+  auth:
+    enabled: false
+  
+  master:
+    persistence:
+      enabled: true
+      storageClass: ""  # Uses default
+      accessMode: ReadWriteOnce
+      size: 500Mi  # Reduced from 1Gi
+    
+    # Reduced resources for free tier
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    
+    podSecurityContext:
+      runAsNonRoot: true
+    
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+  
+  service:
+    type: ClusterIP
+    port: 6379
+
+# Nginx disabled - using OpenShift Routes instead
+nginx:
+  enabled: false
+
+# ServiceAccount configuration - DO NOT CREATE for Developer Sandbox
+serviceAccount:
+  create: false  # IMPORTANT: Developer Sandbox does not allow SA creation
+  annotations: {}
+  name: ""  # Uses default service account
+
+# Pod Disruption Budget disabled for single replica
+podDisruptionBudget:
+  enabled: false
+
+# Autoscaling disabled to control resources
+autoscaling:
+  enabled: false
+
+# Network Policy disabled - not needed for basic deployment
+networkPolicy:
+  enabled: false

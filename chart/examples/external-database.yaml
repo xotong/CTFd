@@ -1,0 +1,54 @@
+# External Database Configuration
+# Use this when you have an external MariaDB/MySQL database
+
+global:
+  openshift:
+    enabled: true
+    route:
+      enabled: true
+      tls:
+        enabled: true
+
+ctfd:
+  replicaCount: 2
+  
+  env:
+    workers: 2
+    # Configure external database connection
+    # Format: mysql+pymysql://username:password@hostname:port/database
+    databaseUrl: "mysql+pymysql://ctfd:password@external-db.example.com:3306/ctfd"
+    secretKey: "your-secret-key-here"
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  
+  persistence:
+    uploads:
+      enabled: true
+      size: 20Gi
+
+# Disable embedded MariaDB
+mariadb:
+  enabled: false
+
+# Keep Redis enabled for caching
+redis:
+  enabled: true
+  
+  master:
+    persistence:
+      enabled: true
+      size: 2Gi
+    
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 250m
+        memory: 256Mi

@@ -1,0 +1,79 @@
+# Minimal Development/Testing Deployment
+# This configuration uses minimal resources for local testing
+
+global:
+  openshift:
+    enabled: false
+
+ctfd:
+  replicaCount: 1
+  
+  image:
+    repository: ctfd/ctfd
+    pullPolicy: IfNotPresent
+  
+  env:
+    workers: 1
+    workerClass: "gevent"
+  
+  service:
+    type: ClusterIP
+    port: 8000
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  
+  persistence:
+    uploads:
+      enabled: true
+      size: 1Gi
+    logs:
+      enabled: false  # Disable logs persistence for dev
+
+mariadb:
+  enabled: true
+  
+  auth:
+    rootPassword: "ctfd"
+    database: "ctfd"
+    username: "ctfd"
+    password: "ctfd"
+  
+  primary:
+    persistence:
+      enabled: true
+      size: 2Gi
+    
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+
+redis:
+  enabled: true
+  
+  master:
+    persistence:
+      enabled: false  # Use emptyDir for dev
+    
+    resources:
+      limits:
+        cpu: 250m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+nginx:
+  enabled: false
+
+serviceAccount:
+  create: true

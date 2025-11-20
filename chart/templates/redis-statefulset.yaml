@@ -1,0 +1,74 @@
+{{- if .Values.redis.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "ctfd.redis.fullname" . }}
+  labels:
+    {{- include "ctfd.redis.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "ctfd.redis.fullname" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ctfd.redis.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ctfd.redis.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.redis.master.podSecurityContext | nindent 8 }}
+      containers:
+        - name: redis
+          securityContext:
+            {{- toYaml .Values.redis.master.containerSecurityContext | nindent 12 }}
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          ports:
+            - name: redis
+              containerPort: 6379
+              protocol: TCP
+          livenessProbe:
+            tcpSocket:
+              port: redis
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: redis
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.redis.master.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  {{- if .Values.redis.master.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "ctfd.redis.labels" . | nindent 10 }}
+      spec:
+        accessModes:
+          - {{ .Values.redis.master.persistence.accessMode | quote }}
+        resources:
+          requests:
+            storage: {{ .Values.redis.master.persistence.size | quote }}
+        {{- if .Values.redis.master.persistence.storageClass }}
+        {{- if (eq "-" .Values.redis.master.persistence.storageClass) }}
+        storageClassName: ""
+        {{- else }}
+        storageClassName: {{ .Values.redis.master.persistence.storageClass | quote }}
+        {{- end }}
+        {{- end }}
+  {{- else }}
+      volumes:
+        - name: data
+          emptyDir: {}
+  {{- end }}
+{{- end }}

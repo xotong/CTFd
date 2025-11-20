@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ctfd.fullname" . }}
+  labels:
+    {{- include "ctfd.labels" . | nindent 4 }}
+    app.kubernetes.io/component: application
+  {{- with .Values.ctfd.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.ctfd.service.type }}
+  ports:
+    - port: {{ .Values.ctfd.service.port }}
+      targetPort: {{ .Values.ctfd.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "ctfd.selectorLabels" . | nindent 4 }}

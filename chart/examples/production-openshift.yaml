@@ -1,0 +1,113 @@
+# OpenShift Production Deployment Example
+# This configuration is optimized for production use on OpenShift
+
+global:
+  openshift:
+    enabled: true
+    route:
+      enabled: true
+      host: "ctfd.apps.your-cluster.example.com"  # Replace with your domain
+      tls:
+        enabled: true
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect
+
+ctfd:
+  replicaCount: 2  # Run 2 replicas for high availability
+  
+  image:
+    repository: ctfd/ctfd
+    pullPolicy: IfNotPresent
+  
+  env:
+    workers: 4  # 4 Gunicorn workers per pod
+    workerClass: "gevent"
+    secretKey: ""  # IMPORTANT: Set this to a strong random value for production
+    reverseProxy: "true"
+  
+  service:
+    type: ClusterIP
+    port: 8000
+  
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 1000m
+      memory: 1Gi
+  
+  persistence:
+    uploads:
+      enabled: true
+      size: 50Gi
+      storageClass: ""  # Use default or specify your storage class
+    logs:
+      enabled: true
+      size: 10Gi
+      storageClass: ""
+
+  podAnnotations: {}
+  podLabels: {}
+
+mariadb:
+  enabled: true
+  
+  image:
+    repository: mariadb
+    tag: "10.11"
+  
+  auth:
+    rootPassword: ""  # IMPORTANT: Change this to a strong password
+    database: "ctfd"
+    username: "ctfd"
+    password: ""  # IMPORTANT: Change this to a strong password
+  
+  primary:
+    persistence:
+      enabled: true
+      size: 50Gi
+      storageClass: ""
+    
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+      requests:
+        cpu: 1000m
+        memory: 2Gi
+
+redis:
+  enabled: true
+  
+  image:
+    repository: redis
+    tag: "4"
+  
+  master:
+    persistence:
+      enabled: true
+      size: 5Gi
+      storageClass: ""
+    
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 500m
+        memory: 512Mi
+
+nginx:
+  enabled: false  # Use OpenShift Routes instead
+
+serviceAccount:
+  create: true
+  annotations: {}
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+autoscaling:
+  enabled: false

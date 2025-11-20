@@ -1,0 +1,45 @@
+{{- if and .Values.ctfd.persistence.uploads.enabled (not .Values.ctfd.persistence.uploads.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "ctfd.fullname" . }}-uploads
+  labels:
+    {{- include "ctfd.labels" . | nindent 4 }}
+    app.kubernetes.io/component: uploads
+spec:
+  accessModes:
+    - {{ .Values.ctfd.persistence.uploads.accessMode | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.ctfd.persistence.uploads.size | quote }}
+  {{- if .Values.ctfd.persistence.uploads.storageClass }}
+  {{- if (eq "-" .Values.ctfd.persistence.uploads.storageClass) }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .Values.ctfd.persistence.uploads.storageClass | quote }}
+  {{- end }}
+  {{- end }}
+{{- end }}
+---
+{{- if and .Values.ctfd.persistence.logs.enabled (not .Values.ctfd.persistence.logs.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "ctfd.fullname" . }}-logs
+  labels:
+    {{- include "ctfd.labels" . | nindent 4 }}
+    app.kubernetes.io/component: logs
+spec:
+  accessModes:
+    - {{ .Values.ctfd.persistence.logs.accessMode | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.ctfd.persistence.logs.size | quote }}
+  {{- if .Values.ctfd.persistence.logs.storageClass }}
+  {{- if (eq "-" .Values.ctfd.persistence.logs.storageClass) }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .Values.ctfd.persistence.logs.storageClass | quote }}
+  {{- end }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ctfd.fullname" . }}
+  labels:
+    {{- include "ctfd.labels" . | nindent 4 }}
+    app.kubernetes.io/component: application
+spec:
+  replicas: {{ .Values.ctfd.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "ctfd.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.ctfd.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "ctfd.selectorLabels" . | nindent 8 }}
+        {{- with .Values.ctfd.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.ctfd.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "ctfd.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.ctfd.podSecurityContext | nindent 8 }}
+      {{- if or .Values.mariadb.enabled .Values.redis.enabled }}
+      initContainers:
+        {{- if .Values.mariadb.enabled }}
+        - name: wait-for-db
+          image: busybox:1.28
+          command: ['sh', '-c', 'until nc -z {{ include "ctfd.mariadb.fullname" . }} {{ .Values.mariadb.service.port }}; do echo waiting for database; sleep 2; done;']
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+        {{- end }}
+        {{- if .Values.redis.enabled }}
+        - name: wait-for-redis
+          image: busybox:1.28
+          command: ['sh', '-c', 'until nc -z {{ include "ctfd.redis.fullname" . }} {{ .Values.redis.service.port }}; do echo waiting for redis; sleep 2; done;']
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: ctfd
+          securityContext:
+            {{- toYaml .Values.ctfd.securityContext | nindent 12 }}
+          image: "{{ .Values.ctfd.image.repository }}:{{ .Values.ctfd.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.ctfd.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.ctfd.service.targetPort }}
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "ctfd.fullname" . }}
+          env:
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ctfd.fullname" . }}
+                  key: secret-key
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ctfd.fullname" . }}
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ctfd.fullname" . }}
+                  key: redis-url
+          {{- if .Values.ctfd.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.ctfd.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.ctfd.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.ctfd.readinessProbe | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.ctfd.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.ctfd.persistence.uploads.enabled }}
+            - name: uploads
+              mountPath: {{ .Values.ctfd.env.uploadFolder }}
+            {{- end }}
+            {{- if .Values.ctfd.persistence.logs.enabled }}
+            - name: logs
+              mountPath: {{ .Values.ctfd.env.logFolder }}
+            {{- end }}
+      volumes:
+        {{- if .Values.ctfd.persistence.uploads.enabled }}
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: {{ .Values.ctfd.persistence.uploads.existingClaim | default (printf "%s-uploads" (include "ctfd.fullname" .)) }}
+        {{- end }}
+        {{- if .Values.ctfd.persistence.logs.enabled }}
+        - name: logs
+          persistentVolumeClaim:
+            claimName: {{ .Values.ctfd.persistence.logs.existingClaim | default (printf "%s-logs" (include "ctfd.fullname" .)) }}
+        {{- end }}
+      {{- with .Values.ctfd.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.ctfd.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.ctfd.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

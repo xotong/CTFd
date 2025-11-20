@@ -1,0 +1,369 @@
+# Default values for CTFd Helm chart
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global settings
+global:
+  # OpenShift specific settings
+  openshift:
+    enabled: true
+    route:
+      enabled: true
+      host: ""  # Leave empty for auto-generated route, or specify your domain
+      tls:
+        enabled: true
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect
+
+# CTFd Application settings
+ctfd:
+  # Number of replicas
+  replicaCount: 1
+
+  image:
+    repository: ctfd/ctfd
+    pullPolicy: IfNotPresent
+    tag: ""  # Overrides the image tag whose default is the chart appVersion
+
+  imagePullSecrets: []
+  nameOverride: ""
+  fullnameOverride: ""
+
+  # Environment variables
+  env:
+    # Number of gunicorn workers
+    workers: 1
+    workerClass: "gevent"
+    # Database configuration (override with values or use mariadb.enabled)
+    databaseUrl: ""  # Format: mysql+pymysql://user:password@host/database
+    # Redis configuration (override with values or use redis.enabled)
+    redisUrl: ""  # Format: redis://host:6379
+    # Secret key for Flask sessions (recommended to set via secret)
+    secretKey: ""
+    # Reverse proxy setting
+    reverseProxy: "true"
+    # Log settings
+    accessLog: "-"  # stdout
+    errorLog: "-"   # stdout
+    # Upload folder
+    uploadFolder: "/var/uploads"
+    logFolder: "/var/log/CTFd"
+    # Skip database ping on startup (useful for init containers)
+    skipDbPing: "false"
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 8000
+    targetPort: 8000
+    annotations: {}
+
+  # Resource limits
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+  # Liveness and readiness probes
+  livenessProbe:
+    httpGet:
+      path: /healthcheck
+      port: 8000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    httpGet:
+      path: /healthcheck
+      port: 8000
+    initialDelaySeconds: 20
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  # Pod security context (compatible with OpenShift)
+  podSecurityContext:
+    runAsNonRoot: true
+    # fsGroup: 1001  # Uncomment if needed for persistent volumes
+
+  # Container security context (compatible with OpenShift)
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    # runAsUser: 1001  # Managed by OpenShift SCC
+
+  # Persistence for uploads
+  persistence:
+    uploads:
+      enabled: true
+      storageClass: ""  # Use default storage class if empty
+      accessMode: ReadWriteOnce
+      size: 5Gi
+      # existingClaim: ""  # Use an existing PVC
+
+    logs:
+      enabled: true
+      storageClass: ""
+      accessMode: ReadWriteOnce
+      size: 1Gi
+      # existingClaim: ""
+
+  # Node selector
+  nodeSelector: {}
+
+  # Tolerations
+  tolerations: []
+
+  # Affinity
+  affinity: {}
+
+  # Additional annotations for pods
+  podAnnotations: {}
+
+  # Additional labels for pods
+  podLabels: {}
+
+# MariaDB database settings
+mariadb:
+  enabled: true
+  
+  image:
+    repository: mariadb
+    tag: "10.11"
+    pullPolicy: IfNotPresent
+
+  # Database configuration
+  auth:
+    rootPassword: "ctfd"
+    database: "ctfd"
+    username: "ctfd"
+    password: "ctfd"
+
+  # Primary configuration
+  primary:
+    # Persistence
+    persistence:
+      enabled: true
+      storageClass: ""
+      accessMode: ReadWriteOnce
+      size: 5Gi
+
+    # Resources
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+
+    # Pod security context (compatible with OpenShift)
+    podSecurityContext:
+      runAsNonRoot: true
+      # fsGroup: 999  # MariaDB default
+
+    # Container security context
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      # runAsUser: 999
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 3306
+
+  # MariaDB specific configuration
+  # These match the docker-compose.yml settings
+  extraEnvVars:
+    - name: MARIADB_AUTO_UPGRADE
+      value: "1"
+
+  # Custom command to set character set and collation
+  # This matches: [mysqld, --character-set-server=utf8mb4, --collation-server=utf8mb4_unicode_ci, --wait_timeout=28800, --log-warnings=0]
+  args:
+    - "--character-set-server=utf8mb4"
+    - "--collation-server=utf8mb4_unicode_ci"
+    - "--wait_timeout=28800"
+    - "--log-warnings=0"
+
+# Redis cache settings
+redis:
+  enabled: true
+
+  image:
+    repository: redis
+    tag: "4"
+    pullPolicy: IfNotPresent
+
+  # Architecture
+  architecture: standalone
+
+  # Authentication
+  auth:
+    enabled: false
+
+  # Master configuration
+  master:
+    # Persistence
+    persistence:
+      enabled: true
+      storageClass: ""
+      accessMode: ReadWriteOnce
+      size: 1Gi
+
+    # Resources
+    resources:
+      limits:
+        cpu: 250m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+    # Pod security context (compatible with OpenShift)
+    podSecurityContext:
+      runAsNonRoot: true
+      # fsGroup: 1001
+
+    # Container security context
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      # runAsUser: 1001
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 6379
+
+# Nginx reverse proxy settings (optional - can use OpenShift routes instead)
+nginx:
+  enabled: false  # Disabled by default on OpenShift, use routes instead
+
+  replicaCount: 1
+
+  image:
+    repository: nginx
+    tag: "stable"
+    pullPolicy: IfNotPresent
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+
+  # Resources
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  # Pod security context (compatible with OpenShift)
+  podSecurityContext:
+    runAsNonRoot: true
+    # fsGroup: 101
+
+  # Container security context
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    # runAsUser: 101
+
+  # ConfigMap for nginx configuration
+  config: |
+    worker_processes 4;
+
+    events {
+      worker_connections 1024;
+    }
+
+    http {
+      # Configuration containing list of application servers
+      upstream app_servers {
+        server {{ include "ctfd.fullname" . }}:8000;
+      }
+
+      server {
+        listen 8080;
+
+        gzip on;
+
+        client_max_body_size 4G;
+
+        # Handle Server Sent Events for Notifications
+        location /events {
+          proxy_pass http://app_servers;
+          proxy_set_header Connection '';
+          proxy_http_version 1.1;
+          chunked_transfer_encoding off;
+          proxy_buffering off;
+          proxy_cache off;
+          proxy_redirect off;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Host $server_name;
+        }
+
+        # Proxy connections to the application servers
+        location / {
+          proxy_pass http://app_servers;
+          proxy_redirect off;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Host $server_name;
+        }
+      }
+    }
+
+# ServiceAccount
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# Network Policy
+networkPolicy:
+  enabled: false
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []
