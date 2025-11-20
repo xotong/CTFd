@@ -20,27 +20,50 @@ This chart deploys the following components:
 
 ## Installing the Chart
 
-### On OpenShift
+### Quick Install (Using Helper Script)
+
+The easiest way to install CTFd is using the provided installation script:
+
+```bash
+# Make the script executable
+chmod +x chart/install.sh
+
+# Install with defaults
+./chart/install.sh -c
+
+# Install with custom values
+./chart/install.sh -f chart/examples/production-openshift.yaml -c
+
+# Install in a custom namespace
+./chart/install.sh -n my-ctfd -c
+
+# See all options
+./chart/install.sh --help
+```
+
+### Manual Installation
+
+#### On OpenShift
 
 ```bash
 # Install with default values (uses OpenShift Routes)
-helm install ctfd ./chart
+helm install ctfd ./chart --namespace ctfd --create-namespace
 
 # Install with custom values
-helm install ctfd ./chart -f custom-values.yaml
+helm install ctfd ./chart -f custom-values.yaml --namespace ctfd --create-namespace
 
-# Install in a specific namespace
-helm install ctfd ./chart --namespace ctfd --create-namespace
+# Install with production example
+helm install ctfd ./chart -f chart/examples/production-openshift.yaml --namespace ctfd --create-namespace
 ```
 
-### On Kubernetes
+#### On Kubernetes
 
 ```bash
 # Install with Nginx enabled (if not using ingress controller)
-helm install ctfd ./chart --set nginx.enabled=true --set global.openshift.enabled=false
+helm install ctfd ./chart --set nginx.enabled=true --set global.openshift.enabled=false --namespace ctfd --create-namespace
 
 # Install with custom ingress
-helm install ctfd ./chart --set global.openshift.enabled=false -f ingress-values.yaml
+helm install ctfd ./chart --set global.openshift.enabled=false -f ingress-values.yaml --namespace ctfd --create-namespace
 ```
 
 ## Configuration
@@ -286,11 +309,38 @@ helm upgrade ctfd ./chart --version <new-version>
 
 ## Uninstalling
 
-```bash
-helm uninstall ctfd
+### Quick Uninstall (Using Helper Script)
 
-# If you want to also delete PVCs
-kubectl delete pvc -l app.kubernetes.io/instance=ctfd
+The easiest way to uninstall CTFd is using the provided uninstallation script:
+
+```bash
+# Make the script executable
+chmod +x chart/uninstall.sh
+
+# Uninstall (keeps PVCs and namespace)
+./chart/uninstall.sh
+
+# Uninstall and delete PVCs (WARNING: deletes all data!)
+./chart/uninstall.sh --delete-pvc -y
+
+# Complete cleanup including namespace
+./chart/uninstall.sh --delete-pvc --delete-namespace -y
+
+# See all options
+./chart/uninstall.sh --help
+```
+
+### Manual Uninstall
+
+```bash
+# Uninstall the release
+helm uninstall ctfd --namespace ctfd
+
+# Optionally delete PVCs (THIS WILL DELETE ALL DATA!)
+kubectl delete pvc -l app.kubernetes.io/instance=ctfd --namespace ctfd
+
+# Or on OpenShift
+oc delete pvc -l app.kubernetes.io/instance=ctfd -n ctfd
 ```
 
 ## Persistence
