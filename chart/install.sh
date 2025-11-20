@@ -77,6 +77,10 @@ EXAMPLES:
     # Install for development
     $0 -f chart/examples/development.yaml -c
 
+    # Install on OpenShift Developer Sandbox (free tier)
+    # NOTE: Do NOT use -c flag for Developer Sandbox - use your provisioned namespace
+    $0 -f chart/examples/developer-sandbox.yaml -n <your-username>-dev
+
 EOF
 }
 

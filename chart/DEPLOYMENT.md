@@ -78,6 +78,115 @@ https://<route-host>
 
 Complete the CTFd setup wizard to finish installation.
 
+## OpenShift Developer Sandbox Deployment
+
+The [OpenShift Developer Sandbox](https://developers.redhat.com/developer-sandbox) is a free OpenShift environment with specific restrictions. Use this configuration if deploying to the free tier.
+
+### Developer Sandbox Restrictions
+
+- **No namespace creation**: Use your provisioned namespace (e.g., `username-dev`)
+- **No custom ServiceAccount**: Must use the default service account
+- **No route hostname**: Routes are auto-assigned by the platform
+- **Resource quotas**: Approximately 7 cores CPU and 15Gi RAM total
+- **Storage limits**: Default provisioner with quota restrictions
+
+### Quick Start for Developer Sandbox
+
+#### 1. Get Your Developer Sandbox Access
+
+Sign up at [https://developers.redhat.com/developer-sandbox](https://developers.redhat.com/developer-sandbox)
+
+#### 2. Login to Your Sandbox
+
+```bash
+# Get login command from the Developer Sandbox web console
+oc login --token=sha256~... --server=https://api.sandbox...openshiftapps.com:6443
+```
+
+#### 3. Identify Your Namespace
+
+```bash
+# Your namespace is typically: <username>-dev
+oc project
+```
+
+#### 4. Install CTFd
+
+```bash
+# Install using the Developer Sandbox configuration
+# IMPORTANT: Do NOT use --create-namespace flag
+helm install ctfd ./chart \
+  -f chart/examples/developer-sandbox.yaml \
+  --namespace $(oc project -q)
+```
+
+#### 5. Monitor Deployment
+
+```bash
+# Watch pods starting up
+oc get pods -w
+
+# Check deployment status
+helm status ctfd
+```
+
+#### 6. Get Your Auto-Assigned Route
+
+```bash
+# Get the route URL
+ROUTE_URL=$(oc get route ctfd -o jsonpath='{.spec.host}')
+echo "CTFd URL: https://$ROUTE_URL"
+```
+
+#### 7. Access CTFd
+
+Open your browser to the URL from step 6 and complete the setup wizard.
+
+### Developer Sandbox Resource Allocation
+
+The `developer-sandbox.yaml` configuration allocates:
+
+| Component | CPU Request | CPU Limit | Memory Request | Memory Limit | Storage |
+|-----------|-------------|-----------|----------------|--------------|---------|
+| CTFd      | 250m        | 500m      | 512Mi          | 768Mi        | 2.5Gi   |
+| MariaDB   | 150m        | 300m      | 256Mi          | 512Mi        | 2Gi     |
+| Redis     | 100m        | 200m      | 128Mi          | 256Mi        | 500Mi   |
+| **Total** | **500m**    | **1000m** | **896Mi**      | **1536Mi**   | **5Gi** |
+
+This fits comfortably within Developer Sandbox quotas while providing adequate performance for testing and learning.
+
+### Troubleshooting Developer Sandbox
+
+**Issue: Pods stuck in Pending**
+```bash
+# Check resource quotas
+oc get resourcequota
+
+# Check events
+oc get events --sort-by='.lastTimestamp'
+```
+
+**Issue: PVC not binding**
+```bash
+# Check PVC status
+oc get pvc
+
+# Check storage class
+oc get storageclass
+
+# Describe PVC for details
+oc describe pvc ctfd-uploads
+```
+
+**Issue: Route not accessible**
+```bash
+# Verify route exists
+oc get route ctfd
+
+# Check service endpoints
+oc get endpoints ctfd
+```
+
 ## Production Deployment
 
 For production deployments, follow these steps:

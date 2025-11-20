@@ -41,6 +41,30 @@ chmod +x chart/install.sh
 ./chart/install.sh --help
 ```
 
+### OpenShift Developer Sandbox (Free Tier)
+
+For the free OpenShift Developer Sandbox, use the pre-configured example that respects sandbox restrictions:
+
+```bash
+# Login to your Developer Sandbox
+oc login --token=<your-token> --server=<your-server>
+
+# Install in your provisioned namespace (DO NOT use --create-namespace)
+helm install ctfd ./chart \
+  -f chart/examples/developer-sandbox.yaml \
+  --namespace <your-username>-dev
+
+# Get your auto-assigned route
+oc get route ctfd -o jsonpath='{.spec.host}'
+```
+
+**Important:** The Developer Sandbox configuration:
+- Uses reduced resources to fit within free tier quotas
+- Does NOT create a ServiceAccount (uses default)
+- Does NOT specify route hostname (auto-assigned)
+- Does NOT create namespace (use your provisioned namespace)
+- Reduced storage sizes to fit within limits
+
 ### Manual Installation
 
 #### On OpenShift
@@ -173,6 +197,38 @@ ctfd:
 ```bash
 helm install ctfd ./chart -f external-redis-values.yaml
 ```
+
+### OpenShift Developer Sandbox (Free Tier)
+
+The Developer Sandbox has specific restrictions that require a custom configuration:
+
+**Restrictions:**
+- No namespace creation (use provisioned namespace like `username-dev`)
+- No custom ServiceAccount creation
+- No route hostname specification (auto-assigned)
+- Resource quotas: ~7 cores, ~15Gi RAM total
+- Limited storage
+
+**Configuration:** Use `chart/examples/developer-sandbox.yaml`
+
+```bash
+# Login to Developer Sandbox
+oc login --token=<your-token> --server=<your-server>
+
+# Install (note: NO --create-namespace flag)
+helm install ctfd ./chart \
+  -f chart/examples/developer-sandbox.yaml \
+  --namespace <your-username>-dev
+
+# Get auto-assigned route
+oc get route ctfd -o jsonpath='{.spec.host}'
+```
+
+**Resource allocation:**
+- CTFd: 250m-500m CPU, 512Mi-768Mi RAM
+- MariaDB: 150m-300m CPU, 256Mi-512Mi RAM  
+- Redis: 100m-200m CPU, 128Mi-256Mi RAM
+- Total storage: ~5Gi (uploads: 2Gi, logs: 500Mi, DB: 2Gi, Redis: 500Mi)
 
 ### High Availability Setup
 
